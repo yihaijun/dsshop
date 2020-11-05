@@ -188,7 +188,7 @@ class IndentController extends Controller
                 $GoodIndent->refund_time = Carbon::now()->toDateTimeString();
                 $GoodIndent->state =GoodIndent::GOOD_INDENT_STATE_REFUND;
                 $GoodIndent->save();
-
+                
                 if($request->refund_way == GoodIndent::GOOD_INDENT_REFUND_WAY_BALANCE){
                     $GoodIndent->refund_money = $request->refund_money;
                     $GoodIndent->refund_way = $request->refund_way;
