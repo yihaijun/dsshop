@@ -217,7 +217,7 @@ class IndentController extends Controller
                         'url'=>'/pages/finance/bill_show?id='.$Money->id,
                         'prefers'=>['database']
                     ];
-                    $user = User::find(auth('web')->user()->id);
+                    $user = User::find($GoodIndent->user_id);
                     $user->notify(new InvoicePaid($invoice));
                     return [
                         'result'=>'ok',
