@@ -208,10 +208,9 @@ Route::prefix('v1')->namespace('v1')->group(function () {
         Route::post('userCoupon', 'UserCouponController@store');    //领取优惠券
         //优惠券_e
         //评价_s
-         Route::get('comment', 'CommentController@index');    //列表
+        Route::get('comment', 'CommentController@index');    //列表
         Route::get('comment/{photo}', 'CommentController@show');    //详情
         Route::get('goodIndentCommodity/{photo}', 'CommentController@goodIndentCommodity');    //获取需要评价的商品列表
-        Route::get('goodEvaluate', 'CommentController@goodEvaluate');    //获取商品评价列表
         Route::post('comment/{photo}', 'CommentController@store');    //添加保存
         Route::post('commentDelete/{photo}', 'CommentController@destroy');    //删除
         //评价_e
@@ -226,6 +225,10 @@ Route::prefix('v1')->namespace('v1')->group(function () {
         Route::get('article/{photo}', 'ArticleController@appShow');    //文章详情
         Route::post('article/{photo}', 'ArticleController@pv');    //增加文章访问量
         //栏目文章_e
+        //评价_s
+        Route::get('comment', 'CommentController@index');    //列表
+        //评价_e
+        Route::get('goodEvaluate', 'CommentController@goodEvaluate');    //获取商品评价列表
         //APP无需验证插件列表
     });
 });
