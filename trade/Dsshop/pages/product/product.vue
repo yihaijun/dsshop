@@ -135,7 +135,7 @@
 		<!-- 优惠券-模态层弹窗  -->
 		<coupon :getList="couponList" :show="couponShow" @changeShow="changeShow"></coupon>
 		<!-- 已删除-->
-		<view class="sold-out padding">商品已经下架了~</view>
+		<view v-if="getList.is_delete" class="sold-out padding">商品已经下架了~</view>
 		<!-- 分享 -->
 		<!-- <share ref="share" :contentHeight="580" :shareList="shareList"></share> -->
 	</view>
