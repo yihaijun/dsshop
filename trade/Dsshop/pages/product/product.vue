@@ -918,5 +918,6 @@ page {
 	width: 100%;
 	background-color: #999999;
 	color: #FFFFFF;
+	z-index: 3;
 }
 </style>
