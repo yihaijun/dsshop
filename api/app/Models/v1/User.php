@@ -20,6 +20,7 @@ use Illuminate\Notifications\Notifiable;
  * @property int state
  * @property int gender
  * @property int miniweixin
+ * @property string uuid
  */
 class User extends Authenticatable
 {
