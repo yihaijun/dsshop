@@ -13,7 +13,6 @@ use Illuminate\Notifications\Notifiable;
  *  @property int money
  * @property mixed portrait
  * @property int type
- * @property int money
  * @property mixed cellphone
  * @property string api_token
  * @property string nickname
@@ -84,5 +83,10 @@ class User extends Authenticatable
     public function Apply()
     {
         return $this->hasMany(Common::class);
+    }
+
+    //用户关系
+    public function UserRelation(){
+        return $this->hasOne(UserRelation::class,'children_id','id');
     }
 }

@@ -63,6 +63,10 @@ export const componentsMap = {
   CreateArticle: () => import('@/views/tool/Article/Article/create'),
   EditArticle: () => import('@/views/tool/Article/Article/edit'),
   // 栏目文章_e
+  // 分销_s
+  Distribution: () => import('@/views/tool/Distribution/index'),
+  DistributionList: () => import('@/views/tool/Distribution/list'),
+  // 分销_e
   // 插件列表
   // 插件
   PlugIn: () => import('@/views/Plugin/index'),

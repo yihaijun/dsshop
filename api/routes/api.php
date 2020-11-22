@@ -37,9 +37,7 @@ Route::prefix('v1')->namespace('v1')->group(function () {
         Route::post('power/create', 'UserController@createPower')->middleware(['permissions:CreatePower']);  //添加权限
         Route::put('power', 'UserController@updataPower')->middleware(['permissions:UpdataPower']);  //修改权限
         Route::delete('power/{id}', 'UserController@destroyPower')->middleware(['permissions:DeletePower']);  //删除权限
-
         //工具
-
         //--Redis管理
         Route::get('redis', 'RedisServiceController@index')->middleware(['permissions:RedisServicesList']);    //Redis列表
         Route::get('redis/{photo}', 'RedisServiceController@show')->middleware(['permissions:RedisServicesList']);    //Redis详情
@@ -139,6 +137,12 @@ Route::prefix('v1')->namespace('v1')->group(function () {
         Route::put('article/{photo}', 'ArticleController@update')->middleware(['permissions:EditArticle']);    //文章编辑保存
         Route::delete('article/{photo}', 'ArticleController@destroy')->middleware(['permissions:DeleteArticle']);    //文章删除
         //栏目文章_e
+        //分销_s
+        Route::get('distribution', 'DistributionController@index')->middleware(['permissions:DistributionList']);    //分销列表
+        Route::post('distribution', 'DistributionController@store')->middleware(['permissions:CreateDistribution']);    //分销添加
+        Route::put('distribution/{photo}', 'DistributionController@update')->middleware(['permissions:EditDistribution']);    //分销更新
+        Route::delete('distribution/{photo}', 'DistributionController@destroy')->middleware(['permissions:DeleteDistribution']);    //分销删除
+        //分销_e
         //前台插件列表
     });
     //app

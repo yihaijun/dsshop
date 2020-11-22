@@ -4,6 +4,8 @@ namespace App\Http\Controllers\v1\Element;
 
 use App\Code;
 use App\common\Aliyun;
+use App\Models\v1\Distribution;
+use App\Models\v1\DistributionLog;
 use App\Models\v1\MiniProgram;
 use App\Models\v1\Good;
 use App\Models\v1\GoodIndent;
@@ -13,6 +15,7 @@ use App\Models\v1\PaymentLog;
 use App\Models\v1\SmsLog;
 use App\Models\v1\User;
 use App\Models\v1\UserLog;
+use App\Models\v1\UserRelation;
 use App\Notifications\InvoicePaid;
 use Carbon\Carbon;
 use EasyWeChat\Factory;
@@ -92,13 +95,22 @@ class WeChatController  extends Controller
             return resReturn(0,'重复密码和密码不相同',Code::CODE_WRONG);
         }
         $user=User::where('cellphone',$request->cellphone)->first();
-        $addUser=new User();
         if($user){
             return resReturn(0,'手机号已被注册',Code::CODE_WRONG);
-        }else{
-            $addUser->money = 10000*100;
         }
         $return=DB::transaction(function ()use($request){
+            // 注册奖励规则获取
+            $Distribution=Distribution::where('state',Distribution::DISTRIBUTION_STATE_OPEN)->where('identification',Distribution::DISTRIBUTION_IDENTIFICATION_REGISTRATION__CASH)
+                ->with(['DistributionRule'])->first();
+            try{    // 防止未按后台录入格式入库的脏数据产生的异常
+                if($Distribution->DistributionRule[0]->type == Distribution::DISTRIBUTION_TYPE_FIXED_AMOUNT){
+                    $price=$Distribution->DistributionRule[0]->price;
+                }else{
+                    $price=0;   //注册奖励没有参考金额，所以无法按比例奖励，如需按比例，请写死一个固定值
+                }
+            }catch (\EXception $e){
+                return 0;
+            }
             $addUser=new User();
             $addUser->name = $request->cellphone;
             $addUser->cellphone = $request->cellphone;
@@ -106,6 +118,73 @@ class WeChatController  extends Controller
             $addUser->api_token = hash('sha256', Str::random(60));
             $addUser->uuid = (string) Uuid::generate();
             $addUser->save();
+            // 用户关系绑定
+            if($request->has('uuid')){
+                $User=User::where('uuid',$request->uuid)->with([ //一级
+                    'UserRelation'=>function($q){   //二级
+                        $q->where('level',UserRelation::USER_RELATION_LEVEL_ONE)->with(['UserRelation'=>function($q){   //三级
+                            $q->where('level',UserRelation::USER_RELATION_LEVEL_ONE);
+                        }]);
+                    }
+                ])->first();
+                // 注册奖励处理
+                if($Distribution){
+                    User::where('id',$User->id)->increment('money',$price);
+                    $DistributionLog=new DistributionLog();
+                    $DistributionLog->user_id = $User->id;
+                    $DistributionLog->children_id = $addUser->id;
+                    $DistributionLog->name = $Distribution->name;
+                    $DistributionLog->type = $Distribution->DistributionRule[0]->type;
+                    $DistributionLog->level = DistributionLog::DISTRIBUTION_LOG_LEVEL_ONE;
+                    $DistributionLog->price = $price;
+                    $DistributionLog->save();
+                    $Money=new MoneyLog();
+                    $Money->user_id = $User->id;
+                    $Money->type = MoneyLog::MONEY_LOG_TYPE_INCOME;
+                    $Money->money = $price;
+                    $Money->remark = '邀请奖励，获得'.($price/100).'元';
+                    $Money->save();
+                    // 通知
+                    $invoice=[
+                        'type'=> InvoicePaid::NOTIFICATION_TYPE_DEAL,
+                        'title'=>'邀请奖励',
+                        'list'=>[
+                            [
+                                'keyword'=>'支付方式',
+                                'data'=>'余额支付'
+                            ]
+                        ],
+                        'price'=>$price,
+                        'url'=>'/pages/finance/bill_show?id='.$Money->id,
+                        'remark'=>'邀请奖励，获得'.($price/100).'元',
+                        'prefers'=>['database']
+                    ];
+                    $user = User::find($User->id);
+                    $user->notify(new InvoicePaid($invoice));
+                }
+                // 一级关系绑定
+                $UserRelation = new UserRelation();
+                $UserRelation->children_id =$addUser->id;    //注册用户ID
+                $UserRelation->parent_id =$User->id;    //一级ID
+                $UserRelation->level =UserRelation::USER_RELATION_LEVEL_ONE;
+                $UserRelation->save();
+                //二级关系绑定
+                if($User->UserRelation){
+                    $UserRelation = new UserRelation();
+                    $UserRelation->children_id =$addUser->id;  //注册用户ID
+                    $UserRelation->parent_id =$User->UserRelation->parent_id;  //二级ID
+                    $UserRelation->level =UserRelation::USER_RELATION_LEVEL_TWO;
+                    $UserRelation->save();
+                    //三级关系绑定
+                    if($User->UserRelation->UserRelation){
+                        $UserRelation = new UserRelation();
+                        $UserRelation->children_id =$addUser->id;  //注册用户ID
+                        $UserRelation->parent_id =$User->UserRelation->UserRelation->parent_id;  //三级ID
+                        $UserRelation->level =UserRelation::USER_RELATION_LEVEL_THREE;
+                        $UserRelation->save();
+                    }
+                }
+            }
             return 1;
         }, 5);
         if($return == 1){

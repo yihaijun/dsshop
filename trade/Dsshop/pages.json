@@ -263,6 +263,14 @@
 			}
 		}
 		// 栏目文章_e
+		// 分销_s
+		,{
+			"path": "pages/user/share",
+			"style": {
+				"navigationBarTitleText": "分享"
+			}
+		}
+		// 分销_e
 		// 插件列表
 	],
 	"globalStyle": {
