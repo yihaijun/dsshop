@@ -44,7 +44,7 @@ class Controller extends BaseController
                 return resReturn(0,'您上传的文件过大',Code::CODE_PARAMETER_WRONG);
             }
         }
-        $url = $this->uploadFiles($file);
+        $url = $this->uploadFiles($file,$request);
 
         //微信小程序图片安全内容检测
         if($request->header('apply-secret')){
@@ -58,26 +58,46 @@ class Controller extends BaseController
         return $url['url'];
     }
     //上传文件
-    protected function uploadFiles($file){
+    protected function uploadFiles($file,$request){
         // 判断图片有效性
         if (!$file->isValid()) {
             return resReturn(0,'上传文件无效',Code::CODE_PARAMETER_WRONG);
         }
         //生成文件名
-        $fileName = str_random(5). time() . '.' . $file->getClientOriginalExtension();
-        $pathName = 'temporary/'.$fileName;
+        $extension = $file->getClientOriginalExtension();
+        $randFileName = str_random(5). time();
+        $fileName       = $randFileName . '.' . $extension;
+
+        $pathName    = 'temporary/'.$fileName;
         // 获取图片在临时文件中的地址
         $files = file_get_contents($file->getRealPath());
         $disk = Storage::disk('public');
         $disk->put($pathName, $files);
+        // 根据前端传递值动态生成多规格图片
+        if($request->has('specification')){
+            $specificationArr=explode(',',$request->specification);
+            if(count($specificationArr)<1){
+                return resReturn(0,'specification格式有误',Code::CODE_PARAMETER_WRONG);
+            }
+            $realBasePath = public_path().'/storage/';
+            $imgSmall=\Image::make($realBasePath.$pathName);
+            $imageSpecification=config('image.specification');
+            rsort($specificationArr);   //将前端输入的规格按大到小排序，不然将导致先生成小图片后再生成大图模糊的问题
+            foreach ($specificationArr as $specification){
+                if(in_array($specification,$imageSpecification)){
+                    $imgSmall->widen($specification);
+                    $imgSmall->save($realBasePath.'temporary/'.$randFileName . "_$specification." . $extension);
+                }
+            }
+        }
         $url = request()->root().'/storage/'.$pathName;
         return array(
-            "state" => "SUCCESS",          //上传状态，上传成功时必须返回"SUCCESS"
-            "url" => $url,            //返回的地址
-            "title" => $fileName,          //新文件名
-            "original" => $file->getClientOriginalName(),       //原始文件名
-            "type" => $file->getClientMimeType(),            //文件类型
-            "size" => $file->getSize()           //文件大小
+            "state"     => "SUCCESS",        //上传状态，上传成功时必须返回"SUCCESS"
+            "url"       => $url,            //返回的地址
+            "title"     => $fileName,       //新文件名
+            "original"  => $file->getClientOriginalName(),       //原始文件名
+            "type"      => $file->getClientMimeType(),            //文件类型
+            "size"      => $file->getSize()           //文件大小
         );
     }
 }

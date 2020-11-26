@@ -10,7 +10,7 @@
 				{{item.text}}
 			</view>
 		</view>
-		<swiper :current="tabCurrentIndex" class="swiper-box" duration="300" @change="changeTab">
+		<swiper :current="tabCurrentIndex" class="swiper-box" duration="300">
 			<swiper-item class="tab-content" v-for="(tabItem,tabIndex) in navList" :key="tabIndex">
 				<scroll-view 
 					class="list-scroll-content" 
@@ -39,7 +39,7 @@
 								class="goods-box-single"
 								v-for="(goodsItem, goodsIndex) in item.goods_list" :key="goodsIndex"
 							>
-								<image class="goods-img" :src="goodsItem.img" mode="aspectFill" lazy-load></image>
+								<image class="goods-img" :src="goodsItem.img | smallImage" mode="aspectFill" lazy-load></image>
 								<view class="right">
 									<text class="title clamp">{{goodsItem.name}}</text>
 									<text class="attr-box clamp">{{goodsItem.specification}}</text>
@@ -238,12 +238,6 @@
 				
 			}, 
 
-			//swiper 切换
-			changeTab(e){
-				this.tabCurrentIndex = e.target.current
-				this.loadData('tabChange')
-				this.page = 1
-			},
 			//顶部tab点击
 			tabClick(index){
 				this.tabCurrentIndex = index

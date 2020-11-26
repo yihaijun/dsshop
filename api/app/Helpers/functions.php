@@ -132,11 +132,21 @@ function imgPathShift($new,$img){
         $img = explode($path, $img);
         if(count($img) == 2){   //上传过的图片才进行处理
             if (! file_exists ( 'storage/image/' . $new )) {    //不存在目录新建
-                mkdir ( "storage/image/$new", 0777, true );
+                @mkdir ( "storage/image/$new", 0777, true );
             }
             if (file_exists ( 'storage/temporary/' . $img['1'] )) { // 存在图片时进行拷贝操作
                 copy('storage/temporary/' . $img['1'],'storage/image/' . $new . '/' . $img['1']);
                 unlink('storage/temporary/' . $img['1']);
+                //拷贝不同规格的图片
+                $imageSpecification=config('image.specification');
+                $iarr = explode('.',$img['1']);
+                foreach ($imageSpecification as $specification){
+                    $img_specification=$iarr[0]."_$specification.".$iarr['1'];
+                    if (file_exists ( 'storage/temporary/' . $img_specification )) { //判断文件是否存在
+                        copy('storage/temporary/' . $img_specification,'storage/image/' . $new . '/' . $img_specification);
+                        unlink('storage/temporary/' . $img_specification);
+                    }
+                }
             }
 
             return request()->root() . '/storage/image/'.$new.'/' . $img['1'];
@@ -149,6 +159,15 @@ function imgPathShift($new,$img){
         $img = explode($path, $img);
         if(count($img) == 2){
             Storage::move('public/temporary/' . $img['1'], 'public/image/' . $new . '/' . $img['1']);
+            //拷贝不同规格的图片
+            $imageSpecification=config('image.specification');
+            $iarr = explode('.',$img['1']);
+            foreach ($imageSpecification as $specification){
+                $img_specification=$iarr[0]."_$specification.".$iarr['1'];
+                if (Storage::exists('public/temporary/' . $img_specification)) { //判断文件是否存在
+                    Storage::move('public/temporary/' . $img_specification, 'public/image/' . $new . '/' . $img_specification);
+                }
+            }
             return request()->root() . '/storage/image/'.$new.'/' . $img['1'];
         }else{
             return $img['0'];
@@ -166,6 +185,15 @@ function imgPathShift($new,$img){
 function imgPathDelete($directory,$img){
     $img = explode('/', $img);
     if(count($img) >1){
+        //删除不同规格的图片
+        $imageSpecification=config('image.specification');
+        $iarr = explode('.',end($img));
+        foreach ($imageSpecification as $specification){
+            $img_specification=$iarr[0]."_$specification.".$iarr['1'];
+            if (Storage::exists('public/image/' . $directory . '/' . $img_specification)) { //判断文件是否存在
+                Storage::delete('public/image/' . $directory . '/' . $img_specification);
+            }
+        }
         Storage::delete('public/image/' . $directory . '/' . end($img));
     }
 }
