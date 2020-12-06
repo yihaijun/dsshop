@@ -61,13 +61,17 @@
 					password: ''
 				},
 				disabled: false,
-				logining: true
+				logining: true,
+				uuid: ''
 			}
 		},
-		onLoad(){
+		onLoad(options){
 			// #ifndef  MP
 			this.TabCur = 1
 			// #endif
+			if(options.uuid){
+				this.uuid = options.uuid
+			}
 		},
 		onShow(){
 			// #ifdef MP
@@ -106,7 +110,14 @@
 					that.login(res)
 					that.logining = false
 					that.$api.msg(`登录成功`);
-					uni.navigateBack()
+					if(that.uuid){	//如果是邀请用户登录
+						uni.switchTab({
+						    url: '/pages/user/user'
+						});
+					}else{
+						uni.navigateBack()
+					}
+					
 				})
 			},
 			tabSelect(e) {

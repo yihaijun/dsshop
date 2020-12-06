@@ -70,8 +70,8 @@
 			// #ifndef  MP-WEIXIN
 			this.TabCur = 1
 			// #endif
-			if(option.uuid){
-				this.ruleForm.uuid = option.uuid
+			if(options.uuid){
+				this.ruleForm.uuid = options.uuid
 			}
 			
 		},
@@ -124,8 +124,12 @@
 				}
 				User.goRegister(ruleForm,function(res){
 					that.$api.msg(`注册成功`);
+					let url = '/pages/public/login'
+					if(that.ruleForm.uuid){
+						url = url+'?uuid='+that.ruleForm.uuid
+					}
 					uni.redirectTo({
-						url: `/pages/public/login`
+						url: url
 					})
 				})
 			},
