@@ -6,6 +6,7 @@ use App\Code;
 use App\common\Aliyun;
 use App\Models\v1\Distribution;
 use App\Models\v1\DistributionLog;
+use App\common\RedisService;
 use App\Models\v1\MiniProgram;
 use App\Models\v1\Good;
 use App\Models\v1\GoodIndent;
@@ -16,6 +17,7 @@ use App\Models\v1\SmsLog;
 use App\Models\v1\User;
 use App\Models\v1\UserLog;
 use App\Models\v1\UserRelation;
+use App\Notifications\Common;
 use App\Notifications\InvoicePaid;
 use Carbon\Carbon;
 use EasyWeChat\Factory;
@@ -24,8 +26,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Redis;
 use Webpatser\Uuid\Uuid;
+
 
 class WeChatController  extends Controller
 {
@@ -44,7 +46,7 @@ class WeChatController  extends Controller
         if(!$request->has('secret')){
             return resReturn(0,'非法操作',Code::CODE_MISUSE);
         }
-        $config = config('wechat.mini_program.default');
+        $config = config('wechat.official_account');
         $app = Factory::miniProgram($config);
         $app->server->push(function($message){
             switch ($message['MsgType']) {
@@ -96,6 +98,9 @@ class WeChatController  extends Controller
         }
         $user=User::where('cellphone',$request->cellphone)->first();
         if($user){
+            if($user->unsubscribe == User::USER_UNSUBSCRIBE_YES){
+                return resReturn(0,'您的账号已注销，无法重新注册',Code::CODE_WRONG);
+            }
             return resReturn(0,'手机号已被注册',Code::CODE_WRONG);
         }
         $return=DB::transaction(function ()use($request){
@@ -225,7 +230,10 @@ class WeChatController  extends Controller
         if(!$user){
             return resReturn(0,'手机号未注册过',Code::CODE_WRONG);
         }
-        if(!$user->state == User::USER_STATE_FORBID){
+        if($user->unsubscribe == User::USER_UNSUBSCRIBE_YES){
+            return resReturn(0,'您的账号已注销，无法重新注册',Code::CODE_WRONG);
+        }
+        if($user->state == User::USER_STATE_FORBID){
             return resReturn(0,'您的账户禁止访问，请联系管理员',Code::CODE_WRONG);
         }
         if (!Hash::check($request->password, $user->password)) {
@@ -245,12 +253,13 @@ class WeChatController  extends Controller
         $log->ip = $request->ip();
         $log->input = json_encode($input, JSON_UNESCAPED_UNICODE);
         $log->save();   # 记录日志
-        return [
+        return resReturn(1,[
             'nickname'=>$user->nickname,
             'cellphone'=>$user->cellphone,
             'portrait'=>$user->portrait,
-            'api_token'=>$user->api_token
-        ];
+            'api_token'=>$user->api_token,
+            'wechat'=>$user->wechat
+        ]);
     }
 
     //登出
@@ -268,7 +277,7 @@ class WeChatController  extends Controller
 
     //注册手机验证码
     public function getRegisterCellphoneCode(Request $request){
-        $redis = Redis::connection('default');
+        $redis = new RedisService();
         if(!$request->has('cellphone')){
             return resReturn(0,'手机号不能为空',Code::CODE_WRONG);
         }
@@ -287,8 +296,11 @@ class WeChatController  extends Controller
             'code'=>$code,
             'failuretime'=>config('dswjcms.failuretime'),
         ]));
-        return resReturn(1,['code'=>$code]);  //不走接口，直接返回验证码
-        $return=$this->getCode(1,$request->cellphone,$code);
+        $Config = config('sms');
+        if(!$Config[$Config['service']]['access_id']){    //没有配置短信账号，直接返回验证码
+            return resReturn(1,['code'=>$code]);
+        }
+        $return=$this->getCode($Config['service'],$request->cellphone,$code);
         if($return['Code'] == "OK"){
             return resReturn(1,'成功');
         }else{
@@ -298,25 +310,18 @@ class WeChatController  extends Controller
     }
 
     /**
-     * @param $apply_id //短信商ID
+     * @param $service //短信商标识
      * @param $cellphone //手机号
      * @param $code //验证码
      * @internal param $applySecret
      * @return string
+     * @throws \AlibabaCloud\Client\Exception\ClientException
      */
-    protected function getCode($apply_id,$cellphone,$code){
-        $aliyunConfig = config('sms.aliyun');
-        $config=[
-            'accessKeyId'=>$aliyunConfig['access_id'],
-            'accessSecret'=>$aliyunConfig['secret'],
-            'SignName'=>$aliyunConfig['signature'],
-            'TemplateCode'=>$aliyunConfig['verification_code'],
-        ];
+    protected function getCode($service,$cellphone,$code){
         $Aliyun=new Aliyun();
-        $return =$Aliyun->sendCode($config,$cellphone,$code);
-
+        $return =$Aliyun->sendCode($cellphone,$code);
         SmsLog::setSmsLog(array(
-            'sms_service_id'=>$apply_id,
+            'sms_service'=>$service,
             'phone'=>$cellphone,
             'data'=>$return
         ));
@@ -367,23 +372,18 @@ class WeChatController  extends Controller
             $Money->money = $GoodIndent->total;
             $Money->remark = '对订单：'.$GoodIndent->identification.'的付款';
             $Money->save();
-            // 通知
-            $invoice=[
-               'type'=> InvoicePaid::NOTIFICATION_TYPE_DEAL,
-                'title'=>'对订单：'.$GoodIndent->identification.'的付款',
-                'list'=>[
-                    [
-                        'keyword'=>'支付方式',
-                        'data'=>'余额支付'
-                    ]
-                ],
-                'price'=>$GoodIndent->total,
-                'url'=>'/pages/finance/bill_show?id='.$Money->id,
-                'prefers'=>['database']
-            ];
-            $user = User::find(auth('web')->user()->id);
-            $user->notify(new InvoicePaid($invoice));
-            return array(1,'支付成功');
+            $Common=(new Common)->finishPayment([
+                'money_id'=>$Money->id,  //资金记录ID
+                'identification'=>$GoodIndent->identification,  //订单号
+                'total'=>$GoodIndent->total,    //订单金额
+                'type'=> '余额支付',
+                'user_id'=>auth('web')->user()->id    //用户ID
+            ]);
+            if($Common['result']== 'ok'){
+                return array(1,'发货成功');
+            }else{
+                return array($Common['msg'],Code::CODE_PARAMETER_WRONG);
+            }
         });
         if($return[0] == 1){
             return resReturn(1,$return[1]);
@@ -440,25 +440,6 @@ class WeChatController  extends Controller
                     $user[strtolower($request->platform)]=$openid;
                     $user->api_token = hash('sha256', Str::random(60));
                     $user->save();
-                    // 通知
-                    $invoice=[
-                        'type'=> InvoicePaid::NOTIFICATION_TYPE_SYSTEM_MESSAGES,
-                        'title'=>'会员注册成功',
-                        'list'=>[
-                            [
-                                'keyword'=>'手机',
-                                'data'=>$miniPhoneNumber['purePhoneNumber']
-                            ],
-                            [
-                                'keyword'=>'初始密码',
-                                'data'=>$password,
-                                'copy'=>true
-                            ]
-                        ],
-                        'remark'=>'您第一次授权登录我们平台，我们将为您生成初始密码，请妥善保管',
-                        'prefers'=>['database']
-                    ];
-                    $user->notify(new InvoicePaid($invoice));
                     $input = $request->all();
                     $log = new UserLog();
                     $log->user_id = $user->id;
@@ -467,6 +448,18 @@ class WeChatController  extends Controller
                     $log->ip = $request->ip();
                     $log->input = json_encode($input, JSON_UNESCAPED_UNICODE);
                     $log->save();   # 记录日志
+                    $Common=(new Common)->register([
+                        'phoneNumber'=>$miniPhoneNumber['purePhoneNumber'],  //手机号
+                        'password'=>$password,  //密码
+                        'user_id'=>$user->id   //用户ID
+                    ]);
+                    if($Common['result']== 'error'){
+                        return [
+                            'state'=>0,
+                            'msg'=>$Common['msg'],
+                            'code'=>Code::CODE_PARAMETER_WRONG
+                        ];
+                    }
                     return [
                         'state'=>1,
                         'data'=>$user
@@ -477,10 +470,16 @@ class WeChatController  extends Controller
                         'nickname'=>$return['data']->nickname,
                         'cellphone'=>$return['data']->cellphone,
                         'portrait'=>$return['data']->portrait,
-                        'api_token'=>$return['data']->api_token
+                        'api_token'=>$return['data']->api_token,
+                        'wechat'=>$return['data']->wechat
                     ]);
+                }else{
+                    return resReturn(0,$return['msg'],$return['code']);
                 }
             }else{
+                if($User->unsubscribe == User::USER_UNSUBSCRIBE_YES){
+                    return resReturn(0,'您的账号已注销，无法重新注册',Code::CODE_WRONG);
+                }
                 $return =DB::transaction(function ()use($request,$miniPhoneNumber,$User,$openid){
                     $User->updated_at=Carbon::now()->toDateTimeString();
                     if(!$User[strtolower($request->platform)]){
@@ -505,7 +504,8 @@ class WeChatController  extends Controller
                         'nickname'=>$return['data']->nickname,
                         'cellphone'=>$return['data']->cellphone,
                         'portrait'=>$return['data']->portrait,
-                        'api_token'=>$return['data']->api_token
+                        'api_token'=>$return['data']->api_token,
+                        'wechat'=>$return['data']->wechat
                     ]);
                 }
             }

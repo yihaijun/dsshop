@@ -197,11 +197,9 @@
 			getOne(){
 				const that = this
 				Address.getOne(this.order, function(res){
-					if(res.shipping){
-						that.addressData = res.shipping
-						that.carriage = res.carriage ? res.carriage : 0
-						that.outPocketTotal() //实付金额
-					}
+					that.addressData = res.shipping ? res.shipping : ''
+					that.carriage = res.carriage ? res.carriage : 0
+					that.outPocketTotal() //实付金额
 				})
 			},
 			//显示优惠券面板
@@ -220,7 +218,7 @@
 				this.payType = type;
 			},
 			submit(){
-				if(!this.addressData.location){
+				if(!this.addressData){
 					this.$api.msg('请选择地址')
 					return false
 				}

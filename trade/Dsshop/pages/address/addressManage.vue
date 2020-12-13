@@ -55,6 +55,8 @@
 			const that = this
 			if(option.type==='edit'){
 				title = '编辑收货地址'
+			}
+			if(option.data){
 				this.addressData = JSON.parse(option.data)
 			}
 			if(option.sid){
@@ -76,11 +78,13 @@
 				const that = this
 				// #ifndef MP-WEIXIN
 				uni.chooseLocation({
+					latitude: that.addressData.latitude,
+					longitude: that.addressData.longitude,
 					success: (data)=> {
-						this.addressData.location = data.name
-						this.addressData.address = data.address
-						this.addressData.latitude = data.latitude
-						this.addressData.longitude = data.longitude
+						that.addressData.location = data.name
+						that.addressData.address = data.address
+						that.addressData.latitude = data.latitude
+						that.addressData.longitude = data.longitude
 					},
 					fail: (res)=>{
 						// this.$api.msg(res.errMsg)
@@ -92,6 +96,8 @@
 				    scope: 'scope.userLocation',
 				    success() {
 				        uni.chooseLocation({
+							latitude: that.addressData.latitude,
+							longitude: that.addressData.longitude,
 				        	success: (data)=> {
 				        		that.addressData.location = data.name
 				        		that.addressData.address = data.address

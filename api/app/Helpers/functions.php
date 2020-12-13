@@ -15,9 +15,13 @@ function resReturn($state=1,$message='',$code='',$httpcode='')
         return response()->json(array(
             'code' => $code?$code:\App\Code::CODE_SYSTEM_BUSY,
             'message' => $message,
+            'result'=> 'error',
         ),$httpcode ? $httpcode : Response::HTTP_UNAUTHORIZED);
     }else{
-        return response()->json($message,Response::HTTP_OK);
+        return response()->json(array(
+            'result'=>'ok',
+            'message' => $message,
+        ),Response::HTTP_OK);
     }
 }
 
@@ -231,5 +235,18 @@ function imgFindReplaceUpdate($str,$path) {
             $str = str_replace($img,$newImg,$str);
         }
     }
+    return $str;
+}
+
+/**
+ * 将下划线命名转换为驼峰式命名
+ * @param $str
+ * @param bool $ucfirst
+ * @return mixed|string
+ */
+function convertUnderline ( $str , $ucfirst = true)
+{
+    $str = ucwords(str_replace('_', ' ', $str));
+    $str = str_replace(' ','',lcfirst($str));
     return $str;
 }

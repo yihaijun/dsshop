@@ -398,7 +398,7 @@ class GoodController extends Controller
                         imgPathDelete('good',$r->img);
                     }
                 }*/
-                Resource::where('image_type','App\Models\v1\GoodSku')->where('depict','not like','%_zimg')->whereNotIn('id',$ResourceAll)->delete();
+//                Resource::where('image_type','App\Models\v1\GoodSku')->where('depict','not like','%_zimg')->whereNotIn('id',$ResourceAll)->delete();
             }
             return 1;
         }, 5);
