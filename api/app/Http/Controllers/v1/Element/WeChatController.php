@@ -7,6 +7,7 @@ use App\common\Aliyun;
 use App\Models\v1\Distribution;
 use App\Models\v1\DistributionLog;
 use App\common\RedisService;
+use App\Mail\VerificationCode;
 use App\Models\v1\MiniProgram;
 use App\Models\v1\Good;
 use App\Models\v1\GoodIndent;
@@ -24,6 +25,8 @@ use EasyWeChat\Factory;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Webpatser\Uuid\Uuid;
@@ -102,6 +105,14 @@ class WeChatController  extends Controller
                 return resReturn(0,'您的账号已注销，无法重新注册',Code::CODE_WRONG);
             }
             return resReturn(0,'手机号已被注册',Code::CODE_WRONG);
+        }
+        $redis = new RedisService();
+        $code=$redis->get('code.register.'.$request->cellphone);
+        if(!$code){
+            return resReturn(0,'验证码已失效，请重新获取',Code::CODE_MISUSE);
+        }
+        if($code !=$request->code){
+            return resReturn(0,'验证码错误',Code::CODE_MISUSE);
         }
         $return=DB::transaction(function ()use($request){
             // 注册奖励规则获取
@@ -213,6 +224,14 @@ class WeChatController  extends Controller
         if($request->password != $request->rPassword){
             return resReturn(0,'确认密码和新密码不相同',Code::CODE_WRONG);
         }
+        $redis = new RedisService();
+        $code=$redis->get('code.register.'.$request->cellphone);
+        if(!$code){
+            return resReturn(0,'验证码已失效，请重新获取',Code::CODE_MISUSE);
+        }
+        if($code !=$request->code){
+            return resReturn(0,'验证码错误',Code::CODE_MISUSE);
+        }
         $user=User::where('cellphone',$request->cellphone)->first();
         $user->password=bcrypt($request->password);
         $user->save();
@@ -291,11 +310,11 @@ class WeChatController  extends Controller
                 return resReturn(0,'手机号不存在',Code::CODE_WRONG);
             }
         }
+        if($redis->get('code.register.'.$request->cellphone)){
+            return resReturn(0,'您的验证码还没有失效，请不要重复获取',Code::CODE_WRONG);
+        }
         $code=rand(10000, 99999);
-        $redis->setex('code.register.'.$request->cellphone,300,json_encode([
-            'code'=>$code,
-            'failuretime'=>config('dswjcms.failuretime'),
-        ]));
+        $redis->setex('code.register.'.$request->cellphone,config('dswjcms.failuretime'),$code);
         $Config = config('sms');
         if(!$Config[$Config['service']]['access_id']){    //没有配置短信账号，直接返回验证码
             return resReturn(1,['code'=>$code]);
@@ -306,6 +325,95 @@ class WeChatController  extends Controller
         }else{
             $redis->del('code.register.'.$request->cellphone);
             return resReturn(0,$return['Message'],Code::CODE_WRONG);
+        }
+    }
+
+    /**
+     * 邮箱验证码
+     * @param Request $request
+     * @return string
+     */
+    public function getRegisterEmailCode(Request $request){
+        if(!$request->email){
+            return resReturn(0,'邮箱不能为空',Code::CODE_WRONG);
+        }
+        if($request->oldEmail){
+            if(auth('web')->user()->email != $request->oldEmail){
+                return resReturn(0,'请求参数有误',Code::CODE_MISUSE);
+            }
+            if(auth('web')->user()->email == $request->email){
+                return resReturn(0,'您的邮箱已认证，无需再次验证',Code::CODE_WRONG);
+            }
+        }
+        $user=User::where('email',$request->email)->where('id','!=',auth('web')->user()->id)->first();
+        if($user){
+            return resReturn(0,'邮箱已被注册',Code::CODE_WRONG);
+        }
+        if (!filter_var($request->email, FILTER_VALIDATE_EMAIL)) {
+            return resReturn(0,'邮箱格式有误',Code::CODE_WRONG);
+        }
+
+        if(!config('mail.username')){    //没有配置邮箱，直接返回错误
+            return resReturn(0,'您的发件邮箱没有配置',Code::CODE_WRONG);
+        }
+        $redis = new RedisService();
+        if($redis->get('code.register.'.$request->email)){
+            return resReturn(0,'您的验证码还没有失效，请不要重复获取',Code::CODE_WRONG);
+        }
+        $code=rand(10000, 99999);
+        $redis->setex('code.register.'.$request->email,config('dswjcms.failuretime'),$code);
+        Mail::to($request->email)->send(new VerificationCode($code));
+        return resReturn(1,'发送成功');
+    }
+
+    /**
+     * 绑定邮箱
+     * @param Request $request
+     * @return string
+     */
+    public function verifyEmail(Request $request){
+        $invoice=[
+            'prefers'=>['mail']
+        ];
+        $user = User::find(auth('web')->user()->id);
+        $user->notify(new InvoicePaid($invoice));
+        exit;
+        if(!$request->email){
+            return resReturn(0,'邮箱不能为空',Code::CODE_WRONG);
+        }
+        if($request->oldEmail){
+            if(auth('web')->user()->email != $request->oldEmail){
+                return resReturn(0,'请求参数有误',Code::CODE_MISUSE);
+            }
+            if(auth('web')->user()->email == $request->email){
+                return resReturn(0,'您的邮箱已绑定，无需再次绑定',Code::CODE_WRONG);
+            }
+        }
+        $redis = new RedisService();
+        $code=$redis->get('code.register.'.$request->email);
+        if(!$code){
+            return resReturn(0,'验证码已失效，请重新获取',Code::CODE_MISUSE);
+        }
+        if($code !=$request->code){
+            return resReturn(0,'验证码错误',Code::CODE_MISUSE);
+        }
+        $user=User::where('email',$request->email)->where('id','!=',auth('web')->user()->id)->first();
+        if($user){
+            return resReturn(0,'邮箱已被注册',Code::CODE_WRONG);
+        }
+        if (!filter_var($request->email, FILTER_VALIDATE_EMAIL)) {
+            return resReturn(0,'邮箱格式有误',Code::CODE_WRONG);
+        }
+        $return=DB::transaction(function ()use($request){
+            $User=User::find(auth('web')->user()->id);
+            $User->email = $request->email;
+            $User->save();
+            return 1;
+        }, 5);
+        if($return == 1){
+            return resReturn(1,'绑定成功');
+        }else{
+            return resReturn(0,'绑定失败',Code::CODE_PARAMETER_WRONG);
         }
     }
 
