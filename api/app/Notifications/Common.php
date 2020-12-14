@@ -182,4 +182,38 @@ class Common
         $user->notify(new InvoicePaid($invoice));
         return $return;
     }
+
+    /**
+     * 邀请奖励通知
+     * @param $parameter    //传入的参数
+     * @return array
+     */
+    public function inviteReward($parameter){
+        $return = [
+            'result'=>'ok',
+            'msg'=>'成功'
+        ];
+        $parameter = collect($parameter);
+        $verification=$this->verification($parameter,['total','money_id','user_id']);
+        if($verification['result'] == 'error'){
+            return $verification;
+        }
+        $invoice=[
+            'type'=> InvoicePaid::NOTIFICATION_TYPE_DEAL,
+            'title'=>'邀请奖励',
+            'list'=>[
+                [
+                    'keyword'=>'支付方式',
+                    'data'=>'余额支付'
+                ]
+            ],
+            'price'=>$parameter['total'],
+            'url'=>'/pages/finance/bill_show?id='.$parameter['money_id'],
+            'remark'=>'邀请奖励，获得'.($parameter['total']/100).'元',
+            'prefers'=>['database']
+        ];
+        $user = User::find($parameter['user_id']);
+        $user->notify(new InvoicePaid($invoice));
+        return $return;
+    }
 }

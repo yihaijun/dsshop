@@ -159,23 +159,14 @@ class WeChatController  extends Controller
                     $Money->money = $price;
                     $Money->remark = '邀请奖励，获得'.($price/100).'元';
                     $Money->save();
-                    // 通知
-                    $invoice=[
-                        'type'=> InvoicePaid::NOTIFICATION_TYPE_DEAL,
-                        'title'=>'邀请奖励',
-                        'list'=>[
-                            [
-                                'keyword'=>'支付方式',
-                                'data'=>'余额支付'
-                            ]
-                        ],
-                        'price'=>$price,
-                        'url'=>'/pages/finance/bill_show?id='.$Money->id,
-                        'remark'=>'邀请奖励，获得'.($price/100).'元',
-                        'prefers'=>['database']
-                    ];
-                    $user = User::find($User->id);
-                    $user->notify(new InvoicePaid($invoice));
+                    $Common=(new Common)->inviteReward([
+                        'money_id'=>$Money->id,  //资金记录ID
+                        'total'=>$price,    //奖励金额
+                        'user_id'=>$User->id   //用户ID
+                    ]);
+                    if($Common['result'] == 'error'){
+                        return $Common;
+                    }
                 }
                 // 一级关系绑定
                 $UserRelation = new UserRelation();
@@ -200,12 +191,15 @@ class WeChatController  extends Controller
                     }
                 }
             }
-            return 1;
+            return [
+                'result'=>'ok',
+                'msg'=>'成功'
+            ];
         }, 5);
-        if($return == 1){
+        if($return['result'] == 'ok'){
             return resReturn(1,'注册成功');
         }else{
-            return resReturn(0,'注册失败',Code::CODE_PARAMETER_WRONG);
+            return resReturn(0,$return['msg'],Code::CODE_PARAMETER_WRONG);
         }
     }
 

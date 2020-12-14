@@ -12,7 +12,6 @@ use App\Models\v1\MoneyLog;
 use App\Models\v1\PaymentLog;
 use App\Models\v1\User;
 use App\Models\v1\UserCoupon;
-use App\Notifications\InvoicePaid;
 use App\Notifications\Common;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
