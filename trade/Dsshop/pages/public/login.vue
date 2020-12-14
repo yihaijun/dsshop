@@ -134,7 +134,7 @@
 				},
 				],
 				disabled: false,
-				uuid: ''
+				uuid: '',
 				modalName: null,
 				logining: true
 			}
@@ -285,8 +285,8 @@
 		background: #fff;
 	}
 	.wrapper{
-		z-index: 90;
 		position:relative;
+		z-index: 90;
 		background: #fff;
 		padding-bottom: 40upx;
 	}
