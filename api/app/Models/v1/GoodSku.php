@@ -16,10 +16,13 @@ use PhpParser\Node\Expr\Cast\Object_;
  * @property string price
  * @property string inventory
  * @property Object_ product_sku
+ * @property int is_delete
  *
  */
 class GoodSku extends Model
 {
+    const GOOD_SKU_DELETE_NO= 0; //删除：否
+    const GOOD_SKU_DELETE_YES= 1; //删除：是
     public static $withoutAppends = true;
     /**
      * Prepare a date for array / JSON serialization.

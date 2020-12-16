@@ -21,6 +21,7 @@ class CreateGoodSkusTable extends Migration
             $table->integer('cost_price')->default(0)->comment('成本价');
             $table->integer('price')->default(0)->comment('销售价');
             $table->integer('inventory')->default(0)->comment('库存');
+            $table->tinyInteger('is_delete')->default(0)->comment('是否删除0否1是');
             $table->text('product_sku')->comment('json商品规格');
             $table->timestamps();
             $table->charset = 'utf8';
