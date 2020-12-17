@@ -426,7 +426,7 @@ class GoodController extends Controller
         $return['goods']= [];
         if($id){
             $Good=Good::with(['resourcesMany','goodSpecificationOld','brand','goodSku'=>function($q){
-                $q->with('resources')->where('is_delete',GoodSku::GOOD_SKU_DELETE_NO);
+                $q->where('is_delete',GoodSku::GOOD_SKU_DELETE_NO)->with('resources');
             }])->find($id);
             if($Good->goodSku){
                 foreach ($Good->goodSku as $id =>$goodSku){
