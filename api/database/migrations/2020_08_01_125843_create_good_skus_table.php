@@ -23,6 +23,7 @@ class CreateGoodSkusTable extends Migration
             $table->integer('inventory')->default(0)->comment('库存');
             $table->tinyInteger('is_delete')->default(0)->comment('是否删除0否1是');
             $table->text('product_sku')->comment('json商品规格');
+            $table->tinyInteger('is_delete')->default(0)->comment('是否已删除 0否 1已删除');
             $table->timestamps();
             $table->charset = 'utf8';
             $table->engine = 'InnoDB';
