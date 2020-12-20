@@ -103,6 +103,7 @@
 					startTime: currentDate,
 					endTime: currentDate
 				},
+				swiperTab: false,
 				navList: [{
 						state: 0,
 						text: '全部',
@@ -233,6 +234,7 @@
 					})
 					//loaded新字段用于表示数据加载完毕，如果为空可以显示空白页
 					that.$set(navItem, 'loaded', true);
+					that.swiperTab = true
 				})
 				
 			}, 
@@ -240,14 +242,17 @@
 			//swiper 切换
 			changeTab(e){
 				this.tabCurrentIndex = e.target.current
-				this.loadData('tabChange')
 				this.page = 1
+				if(this.swiperTab){
+					this.loadData('tabChange')
+				}
 			},
 			//顶部tab点击
 			tabClick(index){
+				this.swiperTab = false
 				this.tabCurrentIndex = index
-				// this.loadData('tabChange')
 				this.page = 1
+				this.loadData('tabChange')
 			},
 			//删除订单
 			deleteOrder(index){

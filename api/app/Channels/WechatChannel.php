@@ -32,11 +32,11 @@ class WechatChannel
      */
     public function send($notifiable, Notification $notification)
     {
-        $message = $notification->Wechat($notifiable);
+        $message = $notification->invoice['parameter'];
         //配置了微信公众平台、wechat存在值、配置过模板ID
         if($this->config['app_id'] && $notifiable->wechat){
-            if($this->information[$message['identification']]){
-                $identification=convertUnderline($message['identification']);
+            if($this->information[$message['template']]){
+                $identification=convertUnderline($message['template']);
                 $this->$identification($notifiable,$message);
             }
         }
@@ -52,30 +52,30 @@ class WechatChannel
      */
     protected function deliveryRelease($notifiable,$message){
         $data = [
-            'template_id' => $this->information[$message['identification']],
+            'template_id' => $this->information[$message['template']],
             'touser' => $notifiable->wechat,
             'data' => [
                 'first' => '您购买的订单已经发货啦，正快马加鞭向您飞奔而去。',
-                'keyword1' => $message['parameter']['identification'],
-                'keyword2' => $message['parameter']['shipping_time'],
-                'keyword3' => $message['parameter']['dhl'],
-                'keyword4' => $message['parameter']['odd'],
-                'keyword5' => $message['parameter']['location']->name.' '.$message['parameter']['location']->cellphone.' '.$message['parameter']['location']->location.$message['parameter']['location']->house,
+                'keyword1' => $message['identification'],
+                'keyword2' => $message['shipping_time'],
+                'keyword3' => $message['dhl'],
+                'keyword4' => $message['odd'],
+                'keyword5' => $message['location']->name.' '.$message['location']->cellphone.' '.$message['location']->location.$message['location']->house,
                 'remark' =>'请保持收件手机畅通！',
             ],
         ];
         if($this->miniweixin){
             $data['miniprogram']=[
                 'appid' => $this->miniweixin,
-                'pagepath' => 'pages/order/showOrder?id=' . $message['parameter']['id'],
+                'pagepath' => 'pages/order/showOrder?id=' . $message['id'],
             ];
         }else{
-            $data['url']= request()->root().'/h5/#'.'pages/order/showOrder?id=' . $message['parameter']['id'];
+            $data['url']= request()->root().'/h5/#'.'pages/order/showOrder?id=' . $message['id'];
         }
         //发送记录
         $send=$this->app->template_message->send($data);
         $NotificationLog =new NotificationLog();
-        $NotificationLog->user_id = $message['parameter']['user_id'];
+        $NotificationLog->user_id = $message['user_id'];
         $NotificationLog->type = NotificationLog::NOTIFICATION_LOG_TYPE_MINIWEIXIN;
         $NotificationLog->msg = json_encode($data);
         $NotificationLog->feedback = json_encode($send);
@@ -93,30 +93,30 @@ class WechatChannel
      */
     protected function finishPayment($notifiable,$message){
         $data = [
-            'template_id' => $this->information[$message['identification']],
+            'template_id' => $this->information[$message['template']],
             'touser' => $notifiable->wechat,
             'data' => [
                 'first' => '恭喜您！购买的商品已支付成功，我们会尽快安排发货哦！么么哒！~~',
-                'keyword1' => $message['parameter']['identification'],
-                'keyword2' => $message['parameter']['name'],
-                'keyword3' => $message['parameter']['total'],
+                'keyword1' => $message['identification'],
+                'keyword2' => $message['name'],
+                'keyword3' => sprintf("%01.2f",$message['total']/100),
                 'keyword4' => '已支付',
-                'keyword5' => $message['parameter']['time'],
+                'keyword5' => $message['time'],
                 'remark' =>'欢迎您的到来！',
             ],
         ];
         if($this->miniweixin){
             $data['miniprogram']=[
                 'appid' => $this->miniweixin,
-                'pagepath' => 'pages/order/showOrder?id=' . $message['parameter']['id'],
+                'pagepath' => '/pages/order/showOrder?id=' . $message['id'],
             ];
         }else{
-            $data['url']= request()->root().'/h5/#'.'pages/order/showOrder?id=' . $message['parameter']['id'];
+            $data['url']= request()->root().'/h5/#/pages/order/showOrder?id=' . $message['id'];
         }
         //发送记录
         $send=$this->app->template_message->send($data);
         $NotificationLog =new NotificationLog();
-        $NotificationLog->user_id = $message['parameter']['user_id'];
+        $NotificationLog->user_id = $message['user_id'];
         $NotificationLog->type = NotificationLog::NOTIFICATION_LOG_TYPE_MINIWEIXIN;
         $NotificationLog->msg = json_encode($data);
         $NotificationLog->feedback = json_encode($send);
