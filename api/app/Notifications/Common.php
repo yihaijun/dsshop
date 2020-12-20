@@ -81,6 +81,93 @@ class Common
     }
 
     /**
+     * 订单评价提醒
+     * @param $parameter    //传入的参数
+     * @return array
+     */
+    public function orderEvaluate($parameter){
+        $return = [
+            'result'=>'ok',
+            'msg'=>'成功'
+        ];
+        $parameter = collect($parameter);
+        $verification=$this->verification($parameter,['id','identification','confirm_time','template','user_id']);
+        if($verification['result'] == 'error'){
+            return $verification;
+        }
+        $invoice=[
+            'type'=> InvoicePaid::NOTIFICATION_TYPE_SYSTEM_MESSAGES,
+            'title'=>'待评价提醒',
+            'list'=>[
+                [
+                    'keyword'=>'订单编号',
+                    'data'=>$parameter['identification']
+                ],
+                [
+                    'keyword'=>'完成时间',
+                    'data'=>$parameter['confirm_time']
+                ]
+            ],
+            'remark'=>'点击详情,您可以对订单进行评价',
+            'url'=>'/pages/order/score?id='.$parameter['id'],
+            'parameter'=>$parameter,
+            'prefers'=>['database','wechat','mail']
+        ];
+        $user = User::find($parameter['user_id']);
+        $user->notify(new InvoicePaid($invoice));
+        return $return;
+    }
+
+    /**
+     * 订单完成通知
+     * @param $parameter    //传入的参数
+     * @return array
+     */
+    public function adminOrderCompletion($parameter){
+        $return = [
+            'result'=>'ok',
+            'msg'=>'成功'
+        ];
+        $parameter = collect($parameter);
+        $verification=$this->verification($parameter,['id','identification','name','confirm_time','template']);
+        if($verification['result'] == 'error'){
+            return $verification;
+        }
+        $invoice=[
+            'type'=> InvoicePaid::NOTIFICATION_TYPE_SYSTEM_MESSAGES,
+            'title'=>'订单完成通知',
+            'list'=>[
+                [
+                    'keyword'=>'订单编号',
+                    'data'=>$parameter['identification']
+                ],
+                [
+                    'keyword'=>'商品名称',
+                    'data'=>$parameter['name']
+                ],
+                [
+                    'keyword'=>'完成时间',
+                    'data'=>$parameter['confirm_time']
+                ]
+            ],
+            'remark'=>'客户已确认收货，订单已完成',
+            'url'=>'/Indent/shipment?id='.$parameter['id'],
+            'parameter'=>$parameter,
+            'admin'=>true,
+            'prefers'=>['wechat','mail']
+        ];
+        if(config('notification.account')){
+            $account=explode(',',config('notification.account'));
+            foreach ($account as $uid) {
+                $user = User::find($uid);
+                $invoice['parameter']['user_id']=$uid;
+                $user->notify(new InvoicePaid($invoice)); // 发送通知
+            }
+        }
+        return $return;
+    }
+
+    /**
      * 完成付款通知
      * @param $parameter    //传入的参数
      * @return array
@@ -149,7 +236,56 @@ class Common
     }
 
     /**
-     * 注册通知
+     * 用户评价通知
+     * @param $parameter    //传入的参数
+     * @return array
+     */
+    public function adminOrderEvaluate($parameter){
+        $return = [
+            'result'=>'ok',
+            'msg'=>'成功'
+        ];
+        $parameter = collect($parameter);
+        $verification=$this->verification($parameter,['id','details','time','cellphone','template']);
+        if($verification['result'] == 'error'){
+            return $verification;
+        }
+        $invoice=[
+            'type'=> InvoicePaid::NOTIFICATION_TYPE_SYSTEM_MESSAGES,
+            'title'=>'收到新的评价消息',
+            'list'=>[
+                [
+                    'keyword'=>'评价人',
+                    'data'=>$parameter['cellphone']
+                ],
+                [
+                    'keyword'=>'评价内容',
+                    'data'=>$parameter['details']
+                ],
+                [
+                    'keyword'=>'评价时间',
+                    'data'=>$parameter['time']
+                ]
+            ],
+            'remark'=>'点击查看详细信息',
+            'url'=>'/tool/comment/commentList?model_id='.$parameter['id'],
+            'parameter'=>$parameter,
+            'admin'=>true,
+            'prefers'=>['wechat','mail']
+        ];
+        if(config('notification.account')){
+            $account=explode(',',config('notification.account'));
+            foreach ($account as $uid) {
+                $user = User::find($uid);
+                $invoice['parameter']['user_id']=$uid;
+                $user->notify(new InvoicePaid($invoice)); // 发送通知
+            }
+        }
+        return $return;
+    }
+
+    /**
+     * 退款通知
      * @param $parameter    //传入的参数
      * @return array
      */
@@ -198,6 +334,40 @@ class Common
         ];
         $parameter = collect($parameter);
         $verification=$this->verification($parameter,['total','money_id','user_id']);
+        if($verification['result'] == 'error'){
+            return $verification;
+        }
+        $invoice=[
+            'type'=> InvoicePaid::NOTIFICATION_TYPE_DEAL,
+            'title'=>'邀请奖励',
+            'list'=>[
+                [
+                    'keyword'=>'支付方式',
+                    'data'=>'余额支付'
+                ]
+            ],
+            'price'=>$parameter['total'],
+            'url'=>'/pages/finance/bill_show?id='.$parameter['money_id'],
+            'remark'=>'邀请奖励，获得'.($parameter['total']/100).'元',
+            'prefers'=>['database']
+        ];
+        $user = User::find($parameter['user_id']);
+        $user->notify(new InvoicePaid($invoice));
+        return $return;
+    }
+
+    /**
+     * 邀请奖励通知
+     * @param $parameter    //传入的参数
+     * @return array
+     */
+    public function inviteReward($parameter){
+        $return = [
+            'result'=>'ok',
+            'msg'=>'成功'
+        ];
+        $parameter = collect($parameter);
+        $verification=$this->verification($parameter,['total','money_id','user_id','template']);
         if($verification['result'] == 'error'){
             return $verification;
         }

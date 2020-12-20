@@ -216,6 +216,9 @@ export default {
     }
   },
   created() {
+    if (this.$route.query.model_id) {
+      this.listQuery.model_id = this.$route.query.model_id
+    }
     this.getList()
   },
   methods: {

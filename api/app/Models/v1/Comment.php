@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int state
  * @property int anonymity
  * @property int score
+ * @property string created_at
  */
 class Comment extends Model
 {
