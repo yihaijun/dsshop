@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\v1\Admin;
 
-use App\Code;
 use App\common\Plugin;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
