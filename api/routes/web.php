@@ -18,4 +18,7 @@ Route::get('/home', function () {
 });
 Route::namespace('v1')->group(function () {
 });
+Route::get("/first",function(){
+	return view("first");
+});
 Auth::routes();
